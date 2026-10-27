@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SimuDrive – مؤقّت التكوين</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ 1. TOKENS ============ */
+:root{
+  --bg:#EEF2F0; --surface:#FFFFFF; --ink:#13243B; --muted:#5B6B7F; --line:#D5DDE3;
+  --ok:#2E8B3A; --warn:#C77700; --over:#C62828; --track:#E3E9E6;
+  --radius:14px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1A27; --surface:#162536; --ink:#E8EEF4; --muted:#93A3B5; --line:#26384B;
+    --ok:#5CC46B; --warn:#F0A63A; --over:#FF6B6B; --track:#20324A;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans Arabic",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+  line-height:1.6;font-variant-numeric:tabular-nums}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+
+/* ============ 2. LAYOUT ============ */
+.app{max-width:1040px;margin:0 auto;padding:20px 16px 40px;display:grid;gap:20px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:1.35rem;font-weight:700}
+h1 span{color:var(--ok)}
+.settings{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.9rem}
+.settings input{width:64px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);text-align:center}
+.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:20px;align-items:start}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+h2{margin:0 0 12px;font-size:1rem;font-weight:600;color:var(--muted)}
+
+/* ============ 3. TIMER ============ */
+.stage{display:grid;justify-items:center;gap:14px;text-align:center}
+.who{font-size:1.4rem;font-weight:700;min-height:2.2rem}
+.dial{position:relative;width:min(300px,78vw);aspect-ratio:1}
+.dial svg{width:100%;height:100%;transform:rotate(-90deg)}
+.dial circle{fill:none;stroke-width:12;stroke-linecap:round}
+.dial .track{stroke:var(--track)}
+.dial .bar{stroke:var(--ok);transition:stroke .3s}
+.readout{position:absolute;inset:0;display:grid;place-content:center;gap:2px}
+.time{font-size:3.6rem;font-weight:700;letter-spacing:.02em;direction:ltr;line-height:1.1}
+.hint{font-size:.9rem;color:var(--muted)}
+.stage[data-phase="warn"] .bar,.stage[data-phase="warn"] .time{stroke:var(--warn);color:var(--warn)}
+.stage[data-phase="over"] .bar,.stage[data-phase="over"] .time{stroke:var(--over);color:var(--over)}
+.stage[data-phase="over"] .dial{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.02)}}
+@media (prefers-reduced-motion:reduce){.stage[data-phase="over"] .dial{animation:none}.dial .bar{transition:none}}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.btn{border:1px solid var(--line);background:var(--surface);padding:10px 18px;border-radius:10px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{color:var(--over)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ============ 4. LISTS ============ */
+.add{display:flex;gap:8px;margin-bottom:14px}
+.add input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+li.current{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,transparent)}
+li .name{font-weight:600;overflow-wrap:anywhere}
+li .meta{font-size:.85rem;color:var(--muted)}
+li .tools{display:flex;gap:6px;flex-shrink:0}
+.mini{border:1px solid var(--line);background:transparent;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:.85rem}
+.mini.go{background:var(--ok);border-color:var(--ok);color:#fff}
+.late{color:var(--over)}
+.empty{color:var(--muted);font-size:.95rem;padding:6px 0}
+.section{margin-top:22px}
+.head-row{display:flex;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Simu<span>Drive</span> – مؤقّت التكوين</h1>
+    <label class="settings">مدة كل مترشح
+      <input id="duration" type="number" min="1" max="180" inputmode="numeric" aria-label="مدة التكوين بالدقائق">
+      دقيقة
+    </label>
+  </header>
+
+  <div class="grid">
+    <section class="panel stage" id="stage" data-phase="idle" aria-live="polite">
+      <div class="who" id="who">لا يوجد مترشح حاليا</div>
+      <div class="dial">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="track" cx="60" cy="60" r="52"/>
+          <circle class="bar" id="bar" cx="60" cy="60" r="52"/>
+        </svg>
+        <div class="readout">
+          <div class="time" id="time">45:00</div>
+          <div class="hint" id="hint">اختار مترشح و اضغط ابدأ</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="toggle" disabled>ابدأ</button>
+        <button class="btn danger" id="finish" disabled>أنهِ التكوين</button>
+      </div>
+    </section>
+
+    <div>
+      <section class="panel">
+        <h2>المترشحون</h2>
+        <form class="add" id="addForm">
+          <input id="nameInput" type="text" placeholder="الاسم و اللقب" maxlength="60" autocomplete="off" aria-label="اسم المترشح">
+          <button class="btn primary" type="submit">أضف</button>
+        </form>
+        <ul id="queue"></ul>
+        <div class="empty" id="queueEmpty">زيد اسم المترشح باش يظهر هنا.</div>
+
+        <div class="section">
+          <div class="head-row">
+            <h2>اللي كمّلوا</h2>
+            <button class="mini" id="clearDone">امسح السجل</button>
+          </div>
+          <ul id="done"></ul>
+          <div class="empty" id="doneEmpty">ما كمّل حتى مترشح بعد.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ A. CONFIG ============ */
+const KEY = "simudrive-timer-v1";
+const WARN_MIN = 5;          // تنبيه قبل النهاية بـ 5 دقايق
+const CIRC = 2 * Math.PI * 52;
+
+/* ============ B. STATE + STORAGE ============ */
+// candidate: { id, name, status: waiting|running|paused|done, accMs, startedAt, usedMs, warned, ended }
+let state = { duration: 45, list: [] };
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) state = Object.assign(state, JSON.parse(raw));
+  } catch (e) { /* storage may be empty or blocked */ }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+/* ============ C. TIMER ENGINE (timestamp based, no drift) ============ */
+const totalMs = () => state.duration * 60000;
+const current = () => state.list.find(c => c.status === "running" || c.status === "paused");
+const elapsed = c => c.accMs + (c.status === "running" ? Date.now() - c.startedAt : 0);
+
+function start(c) {
+  unlockAudio();
+  c.status = "running"; c.startedAt = Date.now();
+  save(); render();
+}
+function pause(c) { c.accMs = elapsed(c); c.status = "paused"; save(); render(); }
+function finish(c) {
+  c.usedMs = elapsed(c); c.status = "done"; save(); render();
+}
+
+/* ============ D. ALERTS ============ */
+let audioCtx = null;
+function unlockAudio() {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) {}
+}
+function beep(times) {
+  if (!audioCtx) return;
+  for (let i = 0; i < times; i++) {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 880; o.connect(g); g.connect(audioCtx.destination);
+    const t = audioCtx.currentTime + i * 0.45;
+    g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.start(t); o.stop(t + 0.32);
+  }
+  if (navigator.vibrate) navigator.vibrate(times > 1 ? [300, 150, 300, 150, 300] : 300);
+}
+function checkAlerts(c, remaining) {
+  if (!c.warned && remaining <= WARN_MIN * 60000 && remaining > 0) { c.warned = true; beep(1); save(); }
+  if (!c.ended && remaining <= 0) { c.ended = true; beep(3); save(); }
+}
+
+/* ============ E. RENDER ============ */
+const $ = id => document.getElementById(id);
+const fmt = ms => {
+  const s = Math.floor(Math.abs(ms) / 1000);
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+};
+
+function renderClock() {
+  const c = current(), stage = $("stage");
+  if (!c) {
+    stage.dataset.phase = "idle";
+    $("time").textContent = fmt(totalMs());
+    $("bar").style.strokeDashoffset = 0;
+    document.title = "SimuDrive – مؤقّت التكوين";
+    return;
+  }
+  const remaining = totalMs() - elapsed(c);
+  const phase = remaining <= 0 ? "over" : remaining <= WARN_MIN * 60000 ? "warn" : "run";
+  stage.dataset.phase = phase;
+  $("time").textContent = (remaining < 0 ? "+" : "") + fmt(remaining);
+  $("bar").style.strokeDashoffset = CIRC * (1 - Math.max(0, remaining) / totalMs());
+  $("hint").textContent = c.status === "paused" ? "في وضع إيقاف"
+    : phase === "over" ? "الوقت انتهى – وقت زايد"
+    : phase === "warn" ? "باقي أقل من " + WARN_MIN + " دقايق" : "الوقت المتبقي";
+  document.title = $("time").textContent + " – " + c.name;
+  if (c.status === "running") checkAlerts(c, remaining);
+}
+
+function li(html, cls) {
+  const el = document.createElement("li");
+  if (cls) el.className = cls;
+  el.innerHTML = html;
+  return el;
+}
+const esc = s => s.replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+function render() {
+  const c = current();
+  $("duration").value = state.duration;
+  $("duration").disabled = !!c;
+
+  $("bar").style.strokeDasharray = CIRC;
+  $("who").textContent = c ? c.name : "لا يوجد مترشح حاليا";
+  $("toggle").disabled = !c && !state.list.some(x => x.status === "waiting");
+  $("toggle").textContent = !c ? "ابدأ التالي" : c.status === "running" ? "إيقاف مؤقت" : "واصل";
+  $("finish").disabled = !c;
+  if (!c) $("hint").textContent = "اختار مترشح و اضغط ابدأ";
+
+  // waiting queue
+  const q = $("queue"); q.innerHTML = "";
+  const waiting = state.list.filter(x => x.status !== "done");
+  waiting.forEach(x => {
+    const isCur = x === c;
+    const delBtn = `<button class="mini" data-act="del" data-id="${x.id}" aria-label="احذف ${esc(x.name)}">حذف</button>`;
+    const row = li(`<div><div class="name">${esc(x.name)}</div><div class="meta">${isCur ? "قاعد يكوّن" : "في الانتظار"}</div></div>
+      <div class="tools">${isCur ? (x.status === "paused" ? delBtn : "") : `<button class="mini go" data-act="start" data-id="${x.id}" ${c ? "disabled" : ""}>ابدأ</button>
+      ${delBtn}`}</div>`, isCur ? "current" : "");
+    q.appendChild(row);
+  });
+  $("queueEmpty").hidden = waiting.length > 0;
+
+  // finished
+  const d = $("done"); d.innerHTML = "";
+  const done = state.list.filter(x => x.status === "done");
+  done.slice().reverse().forEach(x => {
+    const over = x.usedMs - totalMs();
+    d.appendChild(li(`<div class="name">${esc(x.name)}</div>
+      <div class="meta ${over > 0 ? "late" : ""}">${fmt(x.usedMs)}${over > 0 ? " (+" + fmt(over) + ")" : ""}</div>`));
+  });
+  $("doneEmpty").hidden = done.length > 0;
+  renderClock();
+}
+
+/* ============ F. EVENTS ============ */
+$("addForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const name = $("nameInput").value.trim();
+  if (!name) return;
+  state.list.push({ id: Date.now() + "" + Math.floor(Math.random() * 1000), name, status: "waiting", accMs: 0, startedAt: 0, usedMs: 0, warned: false, ended: false });
+  $("nameInput").value = ""; save(); render(); $("nameInput").focus();
+});
+
+$("queue").addEventListener("click", e => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const x = state.list.find(i => i.id === b.dataset.id); if (!x) return;
+  if (b.dataset.act === "start" && !current()) start(x);
+  if (b.dataset.act === "del" && (x !== current() || confirm("تحذف " + x.name + " ؟ الوقت اللي مضى ما يتسجلش."))) { state.list = state.list.filter(i => i !== x); save(); render(); }
+});
+
+$("toggle").addEventListener("click", () => {
+  const c = current();
+  if (!c) { const next = state.list.find(x => x.status === "waiting"); if (next) start(next); }
+  else if (c.status === "running") pause(c); else start(c);
+});
+
+$("finish").addEventListener("click", () => {
+  const c = current();
+  if (c && confirm("تنهي تكوين " + c.name + " ؟")) finish(c);
+});
+
+$("clearDone").addEventListener("click", () => {
+  if (state.list.some(x => x.status === "done") && confirm("تمسح كل سجل اللي كمّلوا؟")) {
+    state.list = state.list.filter(x => x.status !== "done"); save(); render();
+  }
+});
+
+$("duration").addEventListener("change", e => {
+  const v = Math.min(180, Math.max(1, parseInt(e.target.value, 10) || 45));
+  state.duration = v; save(); render();
+});
+
+/* ============ G. BOOT ============ */
+load();
+render();
+setInterval(renderClock, 250);
+</script>
+</body>
+</html>
