@@ -76,7 +76,10 @@ Only one candidate can be `running` or `paused` at a time (one simulator, one se
 
 ```
 .
-├── index.html   # the whole app
+├── index.html        # the whole app
+├── manifest.json     # PWA metadata
+├── service-worker.js # minimal service worker
+├── icons/            # app icons used by manifest + favicon
 └── README.md
 ```
 
